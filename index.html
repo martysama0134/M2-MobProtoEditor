@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  #root,#dc-root,x-dc,.sc-host{height:100%;min-height:0}
+  .ie-scroll{scrollbar-width:thin;scrollbar-color:rgba(140,140,140,.55) transparent}
+  .ie-scroll::-webkit-scrollbar{width:12px;height:12px}
+  .ie-scroll::-webkit-scrollbar-thumb{background:rgba(140,140,140,.55);border-radius:8px;border:3px solid transparent;background-clip:content-box}
+  .ie-scroll::-webkit-scrollbar-thumb:hover{background:rgba(140,140,140,.85);background-clip:content-box}
+  .ie-scroll::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+<div style="{{ t.page }}" ref="{{ setRoot }}">
+
+ <div style="{{ t.leftCol }}">
+  <div style="{{ t.head }}">
+    <div style="{{ t.headTop }}">
+      <div style="{{ t.title }}">{{ t.titleText }}</div>
+      <div style="{{ t.cpBadge }}">{{ cpLabel }}</div>
+    </div>
+    <div style="{{ t.headSub }}">mob_proto.txt · mob_names.txt</div>
+  </div>
+
+  <div style="{{ t.toolbar }}">
+    <div style="{{ t.ioRow }}">
+      <label style="{{ t.loadBtn }}">↑ Load proto<input type="file" accept=".txt,text/plain" onChange="{{ onLoadProto }}" style="{{ t.hiddenFile }}" /></label>
+      <label style="{{ t.loadBtn }}">↑ Load names<input type="file" accept=".txt,text/plain" onChange="{{ onLoadNames }}" style="{{ t.hiddenFile }}" /></label>
+      <button onClick="{{ onSample }}" style="{{ t.ghostBtn }}" title="Restore built-in sample data">Sample</button>
+      <div style="{{ t.ioSpacer }}"></div>
+      <button onClick="{{ onExport }}" style="{{ t.exportBtnTop }}">↓ Export both</button>
+    </div>
+    <div style="{{ t.ctrlRow }}">
+      <div style="{{ t.dualLabel }}">
+        <label style="{{ t.ctrlLabel }}">LOCALE_NAME charset</label>
+        <label style="{{ t.ctrlLabel }}">NAME(K)</label>
+      </div>
+      <div style="{{ t.dualCtrl }}">
+        <select value="{{ locale }}" onChange="{{ onLocale }}" style="{{ t.select }}">
+          <sc-for list="{{ localeOpts }}" as="lo" hint-placeholder-count="3">
+            <option value="{{ lo.code }}">{{ lo.label }}</option>
+          </sc-for>
+        </select>
+        <button onClick="{{ onNameCp }}" style="{{ nameCpBtnStyle }}" title="NAME(K) is throwaway text — toggle its charset">{{ nameCpLabel }}</button>
+      </div>
+    </div>
+    <input value="{{ search }}" onChange="{{ onSearch }}" placeholder="Search vnum / range (100-200) / name…" style="{{ t.searchInput }}" />
+    <div style="{{ t.ctrlRow2 }}">
+      <select value="{{ typeFilter }}" onChange="{{ onType }}" style="{{ t.selectSm }}">
+        <sc-for list="{{ typeOpts }}" as="ty" hint-placeholder-count="3">
+          <option value="{{ ty }}">{{ ty }}</option>
+        </sc-for>
+      </select>
+      <button onClick="{{ onToggleMissing }}" style="{{ missingBtnStyle }}">⌀ untranslated</button>
+      <button onClick="{{ onAdd }}" style="{{ t.addBtn }}">+ New</button>
+    </div>
+  </div>
+
+  <div style="{{ t.legend }}">
+    <span style="{{ t.legendItem }}"><span style="{{ t.legendDotSafe }}"></span>ASCII — always safe</span>
+    <span style="{{ t.legendItem }}"><span style="{{ t.legendDotWarn }}">⚠</span>not encodable in {{ cpLabel }}</span>
+  </div>
+
+  <div style="{{ t.listWrap }}" class="ie-scroll">
+    <sc-if value="{{ isTable }}" hint-placeholder-val="{{ true }}">
+      <div style="{{ t.headerRow }}">
+        <span style="{{ t.thVnum }}">VNUM</span>
+        <span style="{{ t.thName }}">LOCALE_NAME · name(k)</span>
+        <span style="{{ t.thType }}">TYPE</span>
+        <span style="{{ t.thGold }}">LVL</span>
+      </div>
+    </sc-if>
+    <sc-for list="{{ visibleRows }}" as="row" hint-placeholder-count="6">
+      <div style="{{ row.style }}" onClick="{{ row.onClick }}">
+        <sc-if value="{{ showGutter }}" hint-placeholder-val="{{ true }}"><span style="{{ t.gutter }}">{{ row.idx }}</span></sc-if>
+        <span style="{{ t.vnum }}">{{ row.vnum }}</span>
+        <div style="{{ t.nameCell }}">
+          <div style="{{ t.nameLine }}">
+            <span style="{{ row.primaryStyle }}">{{ row.primary }}</span>
+            <sc-if value="{{ row.primaryWarn }}" hint-placeholder-val="{{ false }}"><span style="{{ t.warnDot }}">⚠</span></sc-if>
+          </div>
+          <div style="{{ t.nameLine }}">
+            <span style="{{ row.secondaryStyle }}">{{ row.secondary }}</span>
+            <sc-if value="{{ row.secondaryWarn }}" hint-placeholder-val="{{ false }}"><span style="{{ t.warnDotSm }}">⚠</span></sc-if>
+          </div>
+        </div>
+        <span style="{{ row.badgeStyle }}">{{ row.typeShort }}</span>
+        <span style="{{ t.gold }}">{{ row.goldLabel }}</span>
+      </div>
+    </sc-for>
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ t.emptyState }}">No items match this filter.</div>
+    </sc-if>
+  </div>
+
+  <div style="{{ t.footer }}">
+    <span style="{{ t.count }}">{{ shownCount }} / {{ totalCount }} items{{ dirtyLabel }}</span>
+    <button onClick="{{ onExport }}" style="{{ t.exportBtn }}">↓ Export</button>
+  </div>
+ </div>
+
+  <sc-if value="{{ exportMsg }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ t.toast }}">{{ exportMsg }}</div>
+  </sc-if>
+
+  <sc-if value="{{ showOverlay }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ t.overlay }}" onClick="{{ onClose }}"></div>
+  </sc-if>
+
+  <sc-if value="{{ showPanel }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ t.panel }}">
+     <sc-if value="{{ panelEmpty }}" hint-placeholder-val="{{ false }}">
+       <div style="{{ t.panelEmpty }}"><div style="{{ t.panelEmptyIcon }}">⌗</div>Select an item on the left to edit its fields, flags and names.</div>
+     </sc-if>
+     <sc-if value="{{ editing }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ t.drawerHead }}">
+        <div>
+          <div style="{{ t.drawerVnum }}">#{{ editVnum }}</div>
+          <div style="{{ t.drawerName }}">{{ editName }}</div>
+        </div>
+        <button onClick="{{ onClose }}" style="{{ t.closeBtn }}">{{ closeLabel }}</button>
+      </div>
+      <div style="{{ t.drawerBody }}" class="ie-scroll">
+        <sc-for list="{{ editGroups }}" as="grp" hint-placeholder-count="3">
+          <div style="{{ t.groupTitle }}">{{ grp.title }}</div>
+          <div style="{{ t.fieldGrid }}">
+            <sc-for list="{{ grp.fields }}" as="f" hint-placeholder-count="3">
+              <div style="{{ f.wrapStyle }}">
+                <div style="{{ t.fieldLabelRow }}">
+                  <label style="{{ t.fieldLabel }}">{{ f.label }}</label>
+                  <sc-if value="{{ f.warn }}" hint-placeholder-val="{{ false }}"><span style="{{ t.fieldWarn }}">⚠ not in {{ f.warnCp }}</span></sc-if>
+                </div>
+                <sc-if value="{{ f.isEnum }}" hint-placeholder-val="{{ true }}">
+                  <select value="{{ f.value }}" onChange="{{ f.onInput }}" style="{{ f.inputStyle }}">
+                    <sc-for list="{{ f.options }}" as="opt" hint-placeholder-count="3">
+                      <option value="{{ opt }}">{{ opt }}</option>
+                    </sc-for>
+                  </select>
+                </sc-if>
+                <sc-if value="{{ f.isText }}" hint-placeholder-val="{{ false }}">
+                  <input value="{{ f.value }}" onChange="{{ f.onInput }}" inputmode="{{ f.inputMode }}" style="{{ f.inputStyle }}" />
+                </sc-if>
+                <sc-if value="{{ f.isFlags }}" hint-placeholder-val="{{ false }}">
+                  <div style="{{ t.chipWrap }}">
+                    <sc-for list="{{ f.chips }}" as="c" hint-placeholder-count="6">
+                      <button onClick="{{ c.onToggle }}" title="{{ c.title }}" style="{{ c.style }}">{{ c.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+      <div style="{{ t.drawerFoot }}">
+        <button onClick="{{ onDelete }}" style="{{ t.delBtn }}">Delete</button>
+        <button onClick="{{ onClone }}" style="{{ t.cloneBtn }}">Duplicate</button>
+        <button onClick="{{ onClose }}" style="{{ t.doneBtn }}">Done</button>
+      </div>
+     </sc-if>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:460,&quot;height&quot;:780},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;grid&quot;,&quot;ide&quot;,&quot;fantasy&quot;],&quot;default&quot;:&quot;ide&quot;,&quot;tsType&quot;:&quot;'grid'|'ide'|'fantasy'&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:null,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Appearance&quot;},&quot;desktop&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:null,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+class Component extends DCLogic {
+  static DEFAULTS = {vnum:'0',nameK:null,rank:'PAWN',type:'MONSTER',battleType:'MELEE',level:'1',size:'',aiFlag:'',mountCapacity:'0',raceFlag:'',immuneFlag:'',empire:'0',folder:'',onClick:'0',st:'0',dx:'0',ht:'0',iq:'0',dmgMin:'0',dmgMax:'0',maxHp:'0',regenCycle:'0',regenPercent:'0',goldMin:'0',goldMax:'0',exp:'0',def:'0',atkSpeed:'100',moveSpeed:'100',aggrHpPct:'0',aggrSight:'0',atkRange:'0',dropItem:'0',resurrectVnum:'0',enchantCurse:'0',enchantSlow:'0',enchantPoison:'0',enchantStun:'0',enchantCritical:'0',enchantPenetrate:'0',resistSword:'0',resistTwohand:'0',resistDagger:'0',resistBell:'0',resistFan:'0',resistBow:'0',resistFire:'0',resistElect:'0',resistMagic:'0',resistWind:'0',resistPoison:'0',damMultiply:'1.0',summon:'0',drainSp:'0',mobColor:'0',polymorphItem:'0',skillLevel0:'0',skillVnum0:'0',skillLevel1:'0',skillVnum1:'0',skillLevel2:'0',skillVnum2:'0',skillLevel3:'0',skillVnum3:'0',skillLevel4:'0',skillVnum4:'0',spBerserk:'0',spStoneskin:'0',spGodspeed:'0',spDeathblow:'0',spRevive:'0',locale:null};
+
+  static SAMPLE = [
+    {"vnum":"101","rank":"PAWN","type":"MONSTER","battleType":"MELEE","level":"1","size":"","aiFlag":"","mountCapacity":"0","raceFlag":"ANIMAL","immuneFlag":"","empire":"0","folder":"stray_dog","onClick":"0","st":"3","dx":"6","ht":"5","iq":"2","dmgMin":"20","dmgMax":"24","maxHp":"126","regenCycle":"6","regenPercent":"7","goldMin":"18","goldMax":"27","exp":"15","def":"4","atkSpeed":"100","moveSpeed":"100","aggrHpPct":"0","aggrSight":"2000","atkRange":"175","dropItem":"0","resurrectVnum":"0","enchantCurse":"0","enchantSlow":"0","enchantPoison":"0","enchantStun":"0","enchantCritical":"0","enchantPenetrate":"0","resistSword":"0","resistTwohand":"0","resistDagger":"0","resistBell":"0","resistFan":"0","resistBow":"0","resistFire":"0","resistElect":"0","resistMagic":"0","resistWind":"0","resistPoison":"0","damMultiply":"1.0","summon":"0","drainSp":"0","mobColor":"0","polymorphItem":"70104","skillLevel0":"0","skillVnum0":"0","skillLevel1":"0","skillVnum1":"0","skillLevel2":"0","skillVnum2":"0","skillLevel3":"0","skillVnum3":"0","skillLevel4":"0","skillVnum4":"0","spBerserk":"0","spStoneskin":"0","spGodspeed":"0","spDeathblow":"0","spRevive":"0","bytes":[181,233,176,179],"locale":"Wild Dog"},
+    {"vnum":"3949","rank":"KING","type":"NPC","battleType":"MELEE","level":"1","size":"","aiFlag":"NOMOVE","mountCapacity":"0","raceFlag":"","immuneFlag":"STUN,SLOW,TERROR","empire":"0","folder":"","onClick":"1","st":"0","dx":"0","ht":"0","iq":"0","dmgMin":"0","dmgMax":"0","maxHp":"120","regenCycle":"3","regenPercent":"1","goldMin":"0","goldMax":"0","exp":"10","def":"4","atkSpeed":"100","moveSpeed":"0","aggrHpPct":"0","aggrSight":"2000","atkRange":"150","dropItem":"0","resurrectVnum":"0","enchantCurse":"0","enchantSlow":"0","enchantPoison":"0","enchantStun":"0","enchantCritical":"0","enchantPenetrate":"0","resistSword":"0","resistTwohand":"0","resistDagger":"0","resistBell":"0","resistFan":"0","resistBow":"0","resistFire":"0","resistElect":"0","resistMagic":"0","resistWind":"0","resistPoison":"0","damMultiply":"0.0","summon":"0","drainSp":"0","mobColor":"0","polymorphItem":"0","skillLevel0":"0","skillVnum0":"0","skillLevel1":"0","skillVnum1":"0","skillLevel2":"0","skillVnum2":"0","skillLevel3":"0","skillVnum3":"0","skillLevel4":"0","skillVnum4":"0","spBerserk":"0","spStoneskin":"0","spGodspeed":"0","spDeathblow":"0","spRevive":"0","bytes":[198,247,197,187],"locale":"Portal: New Continent"},
+    {"vnum":"591","rank":"BOSS","type":"MONSTER","battleType":"MELEE","level":"42","size":"","aiFlag":"AGGR","mountCapacity":"0","raceFlag":"HUMAN","immuneFlag":"STUN,SLOW,CURSE,TERROR","empire":"0","folder":"barbarian_boss","onClick":"0","st":"40","dx":"27","ht":"54","iq":"13","dmgMin":"68","dmgMax":"126","maxHp":"18810","regenCycle":"29","regenPercent":"32","goldMin":"520","goldMax":"780","exp":"20280","def":"49","atkSpeed":"100","moveSpeed":"100","aggrHpPct":"100","aggrSight":"2000","atkRange":"175","dropItem":"30075","resurrectVnum":"0","enchantCurse":"0","enchantSlow":"0","enchantPoison":"0","enchantStun":"0","enchantCritical":"50","enchantPenetrate":"15","resistSword":"0","resistTwohand":"0","resistDagger":"0","resistBell":"0","resistFan":"0","resistBow":"0","resistFire":"0","resistElect":"0","resistMagic":"0","resistWind":"0","resistPoison":"0","damMultiply":"2.0","summon":"0","drainSp":"0","mobColor":"0","polymorphItem":"0","skillLevel0":"0","skillVnum0":"0","skillLevel1":"0","skillVnum1":"0","skillLevel2":"0","skillVnum2":"0","skillLevel3":"0","skillVnum3":"0","skillLevel4":"0","skillVnum4":"0","spBerserk":"0","spStoneskin":"0","spGodspeed":"0","spDeathblow":"0","spRevive":"0","bytes":[186,241,183,249,180,220,180,235,192,229],"locale":"Bestial Captain"},
+    {"vnum":"693","rank":"KING","type":"MONSTER","battleType":"MELEE","level":"97","size":"","aiFlag":"AGGR,BERSERK,STONESKIN,DEATHBLOW,REVIVE","mountCapacity":"0","raceFlag":"ORC","immuneFlag":"STUN,SLOW,CURSE,TERROR","empire":"0","folder":"orc_lord","onClick":"0","st":"122","dx":"91","ht":"61","iq":"30","dmgMin":"150","dmgMax":"278","maxHp":"2568600","regenCycle":"30","regenPercent":"20","goldMin":"23400","goldMax":"35100","exp":"356400","def":"90","atkSpeed":"150","moveSpeed":"160","aggrHpPct":"100","aggrSight":"2000","atkRange":"350","dropItem":"0","resurrectVnum":"0","enchantCurse":"0","enchantSlow":"0","enchantPoison":"0","enchantStun":"0","enchantCritical":"15","enchantPenetrate":"20","resistSword":"50","resistTwohand":"30","resistDagger":"25","resistBell":"30","resistFan":"30","resistBow":"30","resistFire":"10","resistElect":"10","resistMagic":"50","resistWind":"10","resistPoison":"20","damMultiply":"2.3","summon":"2414","drainSp":"10","mobColor":"0","polymorphItem":"0","skillLevel0":"35","skillVnum0":"256","skillLevel1":"0","skillVnum1":"0","skillLevel2":"0","skillVnum2":"0","skillLevel3":"0","skillVnum3":"0","skillLevel4":"0","skillVnum4":"0","spBerserk":"20","spStoneskin":"20","spGodspeed":"0","spDeathblow":"30","spRevive":"40","bytes":[191,245,177,221,180,235,221,183,192,229],"locale":"Reborn Chief Ork"},
+    {"vnum":"2900","rank":"BOSS","type":"STONE","battleType":"SPECIAL","level":"20","size":"","aiFlag":"NOMOVE,STONESKIN","mountCapacity":"0","raceFlag":"","immuneFlag":"STUN,SLOW,TERROR","empire":"0","folder":"","onClick":"0","st":"131","dx":"127","ht":"63","iq":"31","dmgMin":"171","dmgMax":"256","maxHp":"14550","regenCycle":"5","regenPercent":"1","goldMin":"0","goldMax":"0","exp":"42","def":"8","atkSpeed":"0","moveSpeed":"0","aggrHpPct":"0","aggrSight":"2000","atkRange":"175","dropItem":"0","resurrectVnum":"0","enchantCurse":"0","enchantSlow":"0","enchantPoison":"0","enchantStun":"0","enchantCritical":"0","enchantPenetrate":"0","resistSword":"30","resistTwohand":"30","resistDagger":"30","resistBell":"30","resistFan":"30","resistBow":"30","resistFire":"0","resistElect":"0","resistMagic":"30","resistWind":"0","resistPoison":"30","damMultiply":"0.0","summon":"0","drainSp":"0","mobColor":"0","polymorphItem":"0","skillLevel0":"0","skillVnum0":"0","skillLevel1":"0","skillVnum1":"0","skillLevel2":"0","skillVnum2":"0","skillLevel3":"0","skillVnum3":"0","skillLevel4":"0","skillVnum4":"0","spBerserk":"0","spStoneskin":"0","spGodspeed":"0","spDeathblow":"0","spRevive":"0","bytes":[189,202,192,204,221,246,32,184,182,188,174],"locale":"Metin of the Rat"},
+    {"vnum":"115","rank":"S_PAWN","type":"MONSTER","battleType":"POWER","level":"24","size":"","aiFlag":"AGGR","mountCapacity":"0","raceFlag":"ANIMAL","immuneFlag":"","empire":"0","folder":"tiger","onClick":"0","st":"25","dx":"17","ht":"45","iq":"9","dmgMin":"59","dmgMax":"72","maxHp":"1007","regenCycle":"10","regenPercent":"22","goldMin":"112","goldMax":"168","exp":"582","def":"29","atkSpeed":"100","moveSpeed":"130","aggrHpPct":"50","aggrSight":"2000","atkRange":"175","dropItem":"30023","resurrectVnum":"0","enchantCurse":"0","enchantSlow":"0","enchantPoison":"0","enchantStun":"0","enchantCritical":"0","enchantPenetrate":"0","resistSword":"0","resistTwohand":"0","resistDagger":"0","resistBell":"0","resistFan":"0","resistBow":"0","resistFire":"0","resistElect":"0","resistMagic":"0","resistWind":"0","resistPoison":"0","damMultiply":"1.4","summon":"0","drainSp":"0","mobColor":"0","polymorphItem":"70105","skillLevel0":"0","skillVnum0":"0","skillLevel1":"0","skillVnum1":"0","skillLevel2":"0","skillVnum2":"0","skillLevel3":"0","skillVnum3":"0","skillLevel4":"0","skillVnum4":"0","spBerserk":"0","spStoneskin":"0","spGodspeed":"0","spDeathblow":"0","spRevive":"0","bytes":[180,235,200,163],"locale":"White Tiger"},
+    {"vnum":"401","rank":"PAWN","type":"MONSTER","battleType":"MELEE","level":"26","size":"","aiFlag":"","mountCapacity":"0","raceFlag":"HUMAN,ATT_WIND","immuneFlag":"","empire":"0","folder":"thief1","onClick":"0","st":"36","dx":"18","ht":"27","iq":"9","dmgMin":"62","dmgMax":"75","maxHp":"981","regenCycle":"6","regenPercent":"5","goldMin":"78","goldMax":"117","exp":"735","def":"31","atkSpeed":"100","moveSpeed":"110","aggrHpPct":"50","aggrSight":"2000","atkRange":"175","dropItem":"30032","resurrectVnum":"0","enchantCurse":"0","enchantSlow":"0","enchantPoison":"0","enchantStun":"0","enchantCritical":"0","enchantPenetrate":"0","resistSword":"0","resistTwohand":"0","resistDagger":"0","resistBell":"0","resistFan":"0","resistBow":"0","resistFire":"0","resistElect":"0","resistMagic":"0","resistWind":"-70","resistPoison":"0","damMultiply":"1.0","summon":"0","drainSp":"0","mobColor":"0","polymorphItem":"70104","skillLevel0":"0","skillVnum0":"0","skillLevel1":"0","skillVnum1":"0","skillLevel2":"0","skillVnum2":"0","skillLevel3":"0","skillVnum3":"0","skillLevel4":"0","skillVnum4":"0","spBerserk":"0","spStoneskin":"0","spGodspeed":"0","spDeathblow":"0","spRevive":"0","bytes":[200,230,199,179,180,220,191,248],"locale":"Black Wind Soldier"},
+    {"vnum":"131","rank":"KNIGHT","type":"MONSTER","battleType":"MELEE","level":"8","size":"","aiFlag":"AGGR","mountCapacity":"0","raceFlag":"ANIMAL","immuneFlag":"CURSE","empire":"0","folder":"wolf","onClick":"0","st":"16","dx":"16","ht":"31","iq":"8","dmgMin":"32","dmgMax":"39","maxHp":"435","regenCycle":"6","regenPercent":"7","goldMin":"60","goldMax":"91","exp":"198","def":"12","atkSpeed":"100","moveSpeed":"120","aggrHpPct":"100","aggrSight":"2000","atkRange":"175","dropItem":"30028","resurrectVnum":"0","enchantCurse":"10","enchantSlow":"0","enchantPoison":"0","enchantStun":"0","enchantCritical":"0","enchantPenetrate":"0","resistSword":"0","resistTwohand":"0","resistDagger":"0","resistBell":"0","resistFan":"0","resistBow":"0","resistFire":"0","resistElect":"0","resistMagic":"0","resistWind":"0","resistPoison":"0","damMultiply":"1.8","summon":"0","drainSp":"0","mobColor":"16764159","polymorphItem":"70106","skillLevel0":"0","skillVnum0":"0","skillLevel1":"0","skillVnum1":"0","skillLevel2":"0","skillVnum2":"0","skillLevel3":"0","skillVnum3":"0","skillLevel4":"0","skillVnum4":"0","spBerserk":"0","spStoneskin":"0","spGodspeed":"0","spDeathblow":"0","spRevive":"0","bytes":[192,250,221,214,185,222,192,186,32,180,221,180,235],"locale":"Cursed Wolf"},
+    {"vnum":"707","rank":"S_KNIGHT","type":"MONSTER","battleType":"MAGIC","level":"51","size":"","aiFlag":"","mountCapacity":"0","raceFlag":"MILGYO,ATT_WIND","immuneFlag":"","empire":"0","folder":"milgyo_monster2","onClick":"0","st":"65","dx":"48","ht":"32","iq":"16","dmgMin":"103","dmgMax":"125","maxHp":"6353","regenCycle":"8","regenPercent":"12","goldMin":"364","goldMax":"546","exp":"4100","def":"58","atkSpeed":"100","moveSpeed":"100","aggrHpPct":"70","aggrSight":"2000","atkRange":"175","dropItem":"30078","resurrectVnum":"0","enchantCurse":"0","enchantSlow":"0","enchantPoison":"0","enchantStun":"0","enchantCritical":"0","enchantPenetrate":"1","resistSword":"1","resistTwohand":"-5","resistDagger":"0","resistBell":"-5","resistFan":"0","resistBow":"0","resistFire":"0","resistElect":"0","resistMagic":"1","resistWind":"-40","resistPoison":"0","damMultiply":"2.0","summon":"0","drainSp":"0","mobColor":"13434828","polymorphItem":"0","skillLevel0":"0","skillVnum0":"0","skillLevel1":"0","skillVnum1":"0","skillLevel2":"0","skillVnum2":"0","skillLevel3":"0","skillVnum3":"0","skillLevel4":"0","skillVnum4":"0","spBerserk":"0","spStoneskin":"0","spGodspeed":"0","spDeathblow":"0","spRevive":"0","bytes":[185,221,177,179,188,210,200,175,183,201],"locale":"Dark Summoner"},
+    {"vnum":"102","rank":"PAWN","type":"MONSTER","battleType":"MELEE","level":"3","size":"","aiFlag":"","mountCapacity":"0","raceFlag":"ANIMAL","immuneFlag":"","empire":"0","folder":"wolf","onClick":"0","st":"4","dx":"9","ht":"7","iq":"2","dmgMin":"23","dmgMax":"28","maxHp":"162","regenCycle":"6","regenPercent":"7","goldMin":"23","goldMax":"34","exp":"39","def":"6","atkSpeed":"100","moveSpeed":"100","aggrHpPct":"25","aggrSight":"2000","atkRange":"175","dropItem":"30028","resurrectVnum":"0","enchantCurse":"0","enchantSlow":"0","enchantPoison":"0","enchantStun":"0","enchantCritical":"0","enchantPenetrate":"0","resistSword":"0","resistTwohand":"0","resistDagger":"0","resistBell":"0","resistFan":"0","resistBow":"0","resistFire":"0","resistElect":"0","resistMagic":"0","resistWind":"0","resistPoison":"0","damMultiply":"1.0","summon":"0","drainSp":"0","mobColor":"0","polymorphItem":"70104","skillLevel0":"0","skillVnum0":"0","skillLevel1":"0","skillVnum1":"0","skillLevel2":"0","skillVnum2":"0","skillLevel3":"0","skillVnum3":"0","skillLevel4":"0","skillVnum4":"0","spBerserk":"0","spStoneskin":"0","spGodspeed":"0","spDeathblow":"0","spRevive":"0","bytes":[180,221,180,235],"locale":"Wolf"},
+    {"vnum":"103","rank":"PAWN","type":"MONSTER","battleType":"MELEE","level":"4","size":"","aiFlag":"","mountCapacity":"0","raceFlag":"ANIMAL","immuneFlag":"","empire":"0","folder":"wolf","onClick":"0","st":"8","dx":"5","ht":"10","iq":"3","dmgMin":"25","dmgMax":"30","maxHp":"182","regenCycle":"6","regenPercent":"7","goldMin":"25","goldMax":"38","exp":"51","def":"7","atkSpeed":"100","moveSpeed":"130","aggrHpPct":"25","aggrSight":"2000","atkRange":"175","dropItem":"30069","resurrectVnum":"0","enchantCurse":"0","enchantSlow":"0","enchantPoison":"0","enchantStun":"0","enchantCritical":"0","enchantPenetrate":"0","resistSword":"0","resistTwohand":"0","resistDagger":"0","resistBell":"0","resistFan":"0","resistBow":"0","resistFire":"0","resistElect":"0","resistMagic":"0","resistWind":"0","resistPoison":"0","damMultiply":"1.0","summon":"0","drainSp":"0","mobColor":"0","polymorphItem":"70104","skillLevel0":"0","skillVnum0":"0","skillLevel1":"0","skillVnum1":"0","skillLevel2":"0","skillVnum2":"0","skillLevel3":"0","skillVnum3":"0","skillLevel4":"0","skillVnum4":"0","spBerserk":"0","spStoneskin":"0","spGodspeed":"0","spDeathblow":"0","spRevive":"0","bytes":[181,206,184,241,180,221,180,235],"locale":"Alpha Wolf"},
+    {"vnum":"104","rank":"PAWN","type":"MONSTER","battleType":"MELEE","level":"6","size":"","aiFlag":"","mountCapacity":"0","raceFlag":"ANIMAL","immuneFlag":"","empire":"0","folder":"wolf","onClick":"0","st":"9","dx":"12","ht":"6","iq":"3","dmgMin":"25","dmgMax":"38","maxHp":"225","regenCycle":"6","regenPercent":"7","goldMin":"30","goldMax":"45","exp":"75","def":"9","atkSpeed":"100","moveSpeed":"100","aggrHpPct":"25","aggrSight":"2000","atkRange":"175","dropItem":"0","resurrectVnum":"0","enchantCurse":"0","enchantSlow":"0","enchantPoison":"0","enchantStun":"0","enchantCritical":"0","enchantPenetrate":"0","resistSword":"0","resistTwohand":"0","resistDagger":"0","resistBell":"0","resistFan":"0","resistBow":"0","resistFire":"0","resistElect":"0","resistMagic":"0","resistWind":"0","resistPoison":"0","damMultiply":"1.0","summon":"0","drainSp":"0","mobColor":"0","polymorphItem":"70104","skillLevel0":"0","skillVnum0":"0","skillLevel1":"0","skillVnum1":"0","skillLevel2":"0","skillVnum2":"0","skillLevel3":"0","skillVnum3":"0","skillLevel4":"0","skillVnum4":"0","spBerserk":"0","spStoneskin":"0","spGodspeed":"0","spDeathblow":"0","spRevive":"0","bytes":[199,170,184,165,180,221,180,235],"locale":"Blue Wolf"}
+  ];
+
+  static COLS = ['vnum','nameK','rank','type','battleType','level','size','aiFlag','mountCapacity','raceFlag','immuneFlag','empire','folder','onClick','st','dx','ht','iq','dmgMin','dmgMax','maxHp','regenCycle','regenPercent','goldMin','goldMax','exp','def','atkSpeed','moveSpeed','aggrHpPct','aggrSight','atkRange','dropItem','resurrectVnum','enchantCurse','enchantSlow','enchantPoison','enchantStun','enchantCritical','enchantPenetrate','resistSword','resistTwohand','resistDagger','resistBell','resistFan','resistBow','resistFire','resistElect','resistMagic','resistWind','resistPoison','damMultiply','summon','drainSp','mobColor','polymorphItem','skillLevel0','skillVnum0','skillLevel1','skillVnum1','skillLevel2','skillVnum2','skillLevel3','skillVnum3','skillLevel4','skillVnum4','spBerserk','spStoneskin','spGodspeed','spDeathblow','spRevive'];
+  static HEADERS = ['VNUM','NAME','RANK','TYPE','BATTLE_TYPE','LEVEL','SIZE','AI_FLAG','MOUNT_CAPACITY','RACE_FLAG','IMMUNE_FLAG','EMPIRE','FOLDER','ON_CLICK','ST','DX','HT','IQ','DAMAGE_MIN','DAMAGE_MAX','MAX_HP','REGEN_CYCLE','REGEN_PERCENT','GOLD_MIN','GOLD_MAX','EXP','DEF','ATTACK_SPEED','MOVE_SPEED','AGGRESSIVE_HP_PCT','AGGRESSIVE_SIGHT','ATTACK_RANGE','DROP_ITEM','RESURRECTION_VNUM','ENCHANT_CURSE','ENCHANT_SLOW','ENCHANT_POISON','ENCHANT_STUN','ENCHANT_CRITICAL','ENCHANT_PENETRATE','RESIST_SWORD','RESIST_TWOHAND','RESIST_DAGGER','RESIST_BELL','RESIST_FAN','RESIST_BOW','RESIST_FIRE','RESIST_ELECT','RESIST_MAGIC','RESIST_WIND','RESIST_POISON','DAM_MULTIPLY','SUMMON','DRAIN_SP','MOB_COLOR','POLYMORPH_ITEM','SKILL_LEVEL0','SKILL_VNUM0','SKILL_LEVEL1','SKILL_VNUM1','SKILL_LEVEL2','SKILL_VNUM2','SKILL_LEVEL3','SKILL_VNUM3','SKILL_LEVEL4','SKILL_VNUM4','SP_BERSERK','SP_STONESKIN','SP_GODSPEED','SP_DEATHBLOW','SP_REVIVE'];
+
+  static LOCALES = [['utf8','Unicode (UTF-8) · any char','utf8'],['ae','Arabic (CP1256)','1256'],['cz','Czech (CP1250)','1250'],['de','German (CP1252)','1252'],['dk','Danish (CP1252)','1252'],['en','English (CP1252)','1252'],['es','Spanish (CP1252)','1252'],['fr','French (CP1252)','1252'],['gr','Greek (CP1253)','1253'],['hu','Hungarian (CP1250)','1250'],['it','Italian (CP1252)','1252'],['nl','Dutch (CP1252)','1252'],['pl','Polish (CP1250)','1250'],['pt','Portuguese (CP1252)','1252'],['ro','Romanian (CP1250)','1250'],['tr','Turkish (CP1254)','1254']];
+
+  static RANKS = ["PAWN","S_PAWN","KNIGHT","S_KNIGHT","BOSS","KING"];
+  static MTYPES = ["MONSTER","NPC","STONE","WARP","DOOR","BUILDING","PC","POLYMORPH_PC","HORSE","GOTO"];
+  static BTYPES = ["MELEE","RANGE","MAGIC","SPECIAL","POWER","TANKER","SUPER_POWER","SUPER_TANKER"];
+  static SIZES = ["","SMALL","MEDIUM","BIG"];
+  static AIFLAGS = ["AGGR","NOMOVE","COWARD","NOATTSHINSU","NOATTCHUNJO","NOATTJINNO","ATTMOB","BERSERK","STONESKIN","GODSPEED","DEATHBLOW","REVIVE"];
+  static RACEFLAGS = ["ANIMAL","UNDEAD","DEVIL","HUMAN","ORC","MILGYO","INSECT","FIRE","ICE","DESERT","TREE","ATT_ELEC","ATT_FIRE","ATT_ICE","ATT_WIND","ATT_EARTH","ATT_DARK","ZODIAC"];
+  static IMMUNEFLAGS = ["STUN","SLOW","FALL","CURSE","POISON","TERROR","REFLECT"];
+
+  static EXTRA = {
+    '1252':'€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ',
+    '1250':'€‚„…†‡‰Š‹ŚŤŽŹ‘’“”•–—™š›śťžź¡ˇ˘Ł¤Ą¦§¨©Ş«¬®Ż°±˛ł´µ¶·¸ąş»Ľ˝ľżŔÁÂĂÄĹĆÇČÉĘËĚÍÎĎĐŃŇÓÔŐÖ×ŘŮÚŰÜÝŢßŕáâăäĺćçčéęëěíîďđńňóôőö÷řůúűüýţ˙',
+    '1253':'€‚ƒ„…†‡‰‹‘’“”•–—™›΅Ά£¤¥¦§¨©«¬®―°±²³΄µ¶·ΈΉΊ»Ό½ΎΏΐΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩΪΫάέήίΰαβγδεζηθικλμνξοπρςστυφχψωϊϋόύώ',
+    '1254':'€‚ƒ„…†‡ˆ‰Š‹Œ‘’“”•–—˜™š›œŸ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏĞÑÒÓÔÕÖ×ØÙÚÛÜİŞßàáâãäåæçèéêëìíîïğñòóôõö÷øùúûüışÿ'
+  };
+
+  static FIELD = {
+    vnum:{label:'VNUM',kind:'num'}, nameK:{label:'NAME(K) · throwaway source text',kind:'text',span:2}, locale:{label:'LOCALE_NAME · localized string',kind:'text',span:2},
+    rank:{label:'Rank',kind:'enum',options:Component.RANKS}, type:{label:'Type',kind:'enum',options:Component.MTYPES,span:2}, battleType:{label:'Battle type',kind:'enum',options:Component.BTYPES},
+    level:{label:'Level',kind:'num'}, size:{label:'Size',kind:'enum',options:Component.SIZES}, maxHp:{label:'Max HP',kind:'num'}, def:{label:'Defense',kind:'num'}, dmgMin:{label:'Damage min',kind:'num'}, dmgMax:{label:'Damage max',kind:'num'}, atkSpeed:{label:'Attack speed',kind:'num'}, moveSpeed:{label:'Move speed',kind:'num'}, atkRange:{label:'Attack range',kind:'num'},
+    st:{label:'STR',kind:'num'}, dx:{label:'DEX',kind:'num'}, ht:{label:'HT',kind:'num'}, iq:{label:'IQ',kind:'num'},
+    aiFlag:{label:'AI flags',kind:'flags',options:Component.AIFLAGS,sep:',',span:2}, aggrHpPct:{label:'Aggr HP %',kind:'num'}, aggrSight:{label:'Aggr sight',kind:'num'}, onClick:{label:'On-click type',kind:'num'}, empire:{label:'Empire',kind:'num'}, folder:{label:'Folder',kind:'text',span:2}, mountCapacity:{label:'Mount capacity',kind:'num'},
+    raceFlag:{label:'Race flags',kind:'flags',options:Component.RACEFLAGS,sep:',',span:2}, immuneFlag:{label:'Immune flags',kind:'flags',options:Component.IMMUNEFLAGS,sep:',',span:2},
+    exp:{label:'EXP',kind:'num'}, goldMin:{label:'Gold min',kind:'num'}, goldMax:{label:'Gold max',kind:'num'}, dropItem:{label:'Drop item vnum',kind:'num'}, resurrectVnum:{label:'Resurrect vnum',kind:'num'}, regenCycle:{label:'Regen cycle',kind:'num'}, regenPercent:{label:'Regen %',kind:'num'},
+    enchantCurse:{label:'Curse',kind:'num'}, enchantSlow:{label:'Slow',kind:'num'}, enchantPoison:{label:'Poison',kind:'num'}, enchantStun:{label:'Stun',kind:'num'}, enchantCritical:{label:'Critical',kind:'num'}, enchantPenetrate:{label:'Penetrate',kind:'num'},
+    resistSword:{label:'Sword',kind:'num'}, resistTwohand:{label:'Two-hand',kind:'num'}, resistDagger:{label:'Dagger',kind:'num'}, resistBell:{label:'Bell',kind:'num'}, resistFan:{label:'Fan',kind:'num'}, resistBow:{label:'Bow',kind:'num'}, resistFire:{label:'Fire',kind:'num'}, resistElect:{label:'Elec',kind:'num'}, resistMagic:{label:'Magic',kind:'num'}, resistWind:{label:'Wind',kind:'num'}, resistPoison:{label:'Poison',kind:'num'},
+    skillLevel0:{label:'Skill0 lv',kind:'num'}, skillVnum0:{label:'Skill0 vnum',kind:'num'}, skillLevel1:{label:'Skill1 lv',kind:'num'}, skillVnum1:{label:'Skill1 vnum',kind:'num'}, skillLevel2:{label:'Skill2 lv',kind:'num'}, skillVnum2:{label:'Skill2 vnum',kind:'num'}, skillLevel3:{label:'Skill3 lv',kind:'num'}, skillVnum3:{label:'Skill3 vnum',kind:'num'}, skillLevel4:{label:'Skill4 lv',kind:'num'}, skillVnum4:{label:'Skill4 vnum',kind:'num'},
+    spBerserk:{label:'Berserk',kind:'num'}, spStoneskin:{label:'Stoneskin',kind:'num'}, spGodspeed:{label:'God speed',kind:'num'}, spDeathblow:{label:'Death blow',kind:'num'}, spRevive:{label:'Revive',kind:'num'},
+    damMultiply:{label:'Damage multiply',kind:'text'}, summon:{label:'Summon vnum',kind:'num'}, drainSp:{label:'Drain SP',kind:'num'}, mobColor:{label:'Mob color',kind:'num'}, polymorphItem:{label:'Polymorph item',kind:'num'}
+  };
+
+  static GROUPS = [
+    {title:'Identity', keys:['vnum','type','rank','battleType','nameK','locale']},
+    {title:'Combat', keys:['level','size','maxHp','def','dmgMin','dmgMax','atkSpeed','moveSpeed','atkRange']},
+    {title:'Stats', keys:['st','dx','ht','iq']},
+    {title:'Behavior', keys:['aiFlag','aggrHpPct','aggrSight','onClick','empire','folder','mountCapacity']},
+    {title:'Race & Immunity', keys:['raceFlag','immuneFlag']},
+    {title:'Rewards', keys:['exp','goldMin','goldMax','dropItem','resurrectVnum','regenCycle','regenPercent']},
+    {title:'Enchants (on hit)', keys:['enchantCurse','enchantSlow','enchantPoison','enchantStun','enchantCritical','enchantPenetrate']},
+    {title:'Resists', keys:['resistSword','resistTwohand','resistDagger','resistBell','resistFan','resistBow','resistFire','resistElect','resistMagic','resistWind','resistPoison']},
+    {title:'Skills', keys:['skillLevel0','skillVnum0','skillLevel1','skillVnum1','skillLevel2','skillVnum2','skillLevel3','skillVnum3','skillLevel4','skillVnum4']},
+    {title:'Special points', keys:['spBerserk','spStoneskin','spGodspeed','spDeathblow','spRevive']},
+    {title:'Misc', keys:['damMultiply','summon','drainSp','mobColor','polymorphItem']}
+  ];
+
+  static SAMPLED(){ return Component.SAMPLE.map(o=>({...Component.DEFAULTS,...o})).sort((a,b)=>(parseInt(a.vnum,10)||0)-(parseInt(b.vnum,10)||0)); }
+  state = { rows: Component.SAMPLED(), locale:'en', nameCp:'1252', search:'', typeFilter:'ALL', onlyMissing:false, editingVnum:null, exportMsg:'', dirty:false, wide:false };
+
+  componentWillUnmount(){ if(this._ro) this._ro.disconnect(); }
+  _measure(el){ if(el && el!==this._root){ this._root=el; if(this._ro) this._ro.disconnect(); this._ro=new ResizeObserver(es=>{ const w=es[0].contentRect.width; const wide=w>=800; if(wide!==this.state.wide) this.setState({wide}); }); this._ro.observe(el); } }
+
+  cp(){ const l = Component.LOCALES.find(x=>x[0]===this.state.locale); return l?l[2]:'1252'; }
+  encChar(ch, cp){ const c=ch.codePointAt(0); if(c<128) return true; if(cp==='949'){ return (c>=0xAC00&&c<=0xD7A3)||(c>=0x1100&&c<=0x11FF)||(c>=0x3130&&c<=0x318F)||(c>=0x4E00&&c<=0x9FFF)||(c>=0x3000&&c<=0x303F)||(c>=0xFF00&&c<=0xFFEF); } if(cp==='1256'){ return (c>=0x0600&&c<=0x06FF)||(c>=0x0750&&c<=0x077F)||'€ŒœŸ‚ƒ„…†‡ˆ‰‹›™•–—°±«»¤£¥§©®¬´µ¶·¸¹º'.indexOf(ch)>=0; } const set=Component.EXTRA[cp]; return set? set.indexOf(ch)>=0 : false; }
+  encStr(s, cp){ if(!s) return true; if(cp==='utf8') return true; for(const ch of String(s)){ if(!this.encChar(ch,cp)) return false; } return true; }
+  cpDisplay(cp){ return cp==='utf8' ? 'UTF-8' : 'CP'+cp; }
+
+  decodeName(bytes, cp){ if(!bytes||!bytes.length) return ''; const map={'949':'euc-kr','1252':'windows-1252','1250':'windows-1250','1253':'windows-1253','1254':'windows-1254','1256':'windows-1256','utf8':'utf-8'}; try{ return new TextDecoder(map[cp]||'windows-1252').decode(new Uint8Array(bytes)); }catch(e){ return String.fromCharCode(...bytes); } }
+  nameOf(r){ return r.nameK!=null ? r.nameK : this.decodeName(r.bytes, this.state.nameCp); }
+  localeOf(r){ return r.locale!=null ? r.locale : this.decodeName(r.localeBytes, this.cp()); }
+  isMissing(r){ const l=this.localeOf(r); return !l || !l.trim(); }
+
+  onLoadProto(e){ const file=e.target.files&&e.target.files[0]; if(!file) return; const rd=new FileReader(); rd.onload=()=>this.parseProto(new Uint8Array(rd.result), file.name); rd.readAsArrayBuffer(file); e.target.value=''; }
+  onLoadNames(e){ const file=e.target.files&&e.target.files[0]; if(!file) return; const rd=new FileReader(); rd.onload=()=>this.parseNames(new Uint8Array(rd.result), file.name); rd.readAsArrayBuffer(file); e.target.value=''; }
+  _splitLine(buf,start,end){ const fields=[]; let fs=start; for(let k=start;k<=end;k++){ if(k===end||buf[k]===9){ let fe=k; if(fe>fs && buf[fe-1]===13) fe--; fields.push([fs,fe]); fs=k+1; } } return fields; }
+  _ascii(buf,a,b){ let s=''; for(let k=a;k<b;k++) s+=String.fromCharCode(buf[k]); return s.trim(); }
+  parseProto(buf, fname){ const rows=[]; let start=0, ln=0; for(let i=0;i<=buf.length;i++){ if(i===buf.length||buf[i]===10){ if(i>start+1||(i>start&&buf[start]!==13)){ if(ln>0){ const fl=this._splitLine(buf,start,i); if(fl.length>1 && (fl[0][1]>fl[0][0])){ const row={...Component.DEFAULTS}; row.vnum=this._ascii(buf,fl[0][0],fl[0][1]); const nb=[]; for(let k=fl[1][0];k<fl[1][1];k++) nb.push(buf[k]); row.bytes=nb.length?nb:null; row.nameK=null; for(let ci=2; ci<Component.COLS.length && ci<fl.length; ci++){ row[Component.COLS[ci]]=this._ascii(buf,fl[ci][0],fl[ci][1]); } if(row.vnum) rows.push(row); } } ln++; } start=i+1; } } if(!rows.length){ this.toast('No rows parsed — is this an item_proto.txt?'); return; } this._applyNames(rows); this.setState({rows, dirty:false, editingVnum:null, search:''}); this.toast('Loaded '+rows.length+' items from '+fname); }
+  parseNames(buf, fname){ const map={}; let start=0, ln=0, n=0; for(let i=0;i<=buf.length;i++){ if(i===buf.length||buf[i]===10){ if(i>start){ if(ln>0){ const fl=this._splitLine(buf,start,i); if(fl.length>=2){ const vn=this._ascii(buf,fl[0][0],fl[0][1]); const lb=[]; for(let k=fl[1][0];k<fl[1][1];k++) lb.push(buf[k]); if(vn){ map[vn]=lb; n++; } } } ln++; } start=i+1; } } this._namesMap=map; this.setState(s=>({ rows: s.rows.map(r=> map[r.vnum]!=null ? {...r, localeBytes:map[r.vnum], locale:null} : r) })); this.toast('Loaded '+n+' locale names from '+fname); }
+  _applyNames(rows){ const map=this._namesMap; if(!map) return; rows.forEach(r=>{ if(map[r.vnum]!=null){ r.localeBytes=map[r.vnum]; r.locale=null; } }); }
+  loadSample(){ this._namesMap=null; this.setState({ rows: Component.SAMPLED(), dirty:false, editingVnum:null, search:'' }); this.toast('Restored sample data'); }
+
+  filtered(){ const {rows,search,typeFilter,onlyMissing}=this.state; const q=search.trim().toLowerCase(); const range=q.match(/^(\d+)\s*-\s*(\d+)$/); return rows.filter(r=>{ if(typeFilter!=='ALL' && r.type!==typeFilter) return false; if(onlyMissing && !this.isMissing(r)) return false; if(!q) return true; if(range){ const n=parseInt(r.vnum,10); return n>=+range[1] && n<=+range[2]; } return r.vnum.toLowerCase().includes(q) || this.nameOf(r).toLowerCase().includes(q) || this.localeOf(r).toLowerCase().includes(q); }); }
+
+  update(vnum,key,val){ this.setState(s=>({ dirty:true, editingVnum: (key==='vnum'&&s.editingVnum===vnum)?val:s.editingVnum, rows: s.rows.map(r=>{ if(r.vnum!==vnum) return r; const nr={...r,[key]:val}; if(key==='nameK') nr.bytes=null; if(key==='locale') nr.localeBytes=null; return nr; }) })); }
+  toggleFlag(vnum,key,opt){ this.setState(s=>({ dirty:true, rows:s.rows.map(r=>{ if(r.vnum!==vnum) return r; const meta=Component.FIELD[key]; const sep=meta.sep||'|'; const cur=new Set(String(r[key]||'').split(sep).map(x=>x.trim()).filter(Boolean)); cur.has(opt)?cur.delete(opt):cur.add(opt); const ordered=(meta.options||[]).filter(o=>cur.has(o)); const joiner=sep===','?',':' | '; return {...r,[key]:ordered.join(joiner)}; }) })); }
+  nextVnum(){ const m=this.state.rows.reduce((a,r)=>Math.max(a, parseInt(r.vnum,10)||0),0); return String(m+1); }
+  add(){ const v=this.nextVnum(); this.setState(s=>({ dirty:true, editingVnum:v, rows:[{...Component.DEFAULTS,vnum:v}, ...s.rows] })); }
+  clone(){ const src=this.state.rows.find(r=>r.vnum===this.state.editingVnum); if(!src) return; const v=this.nextVnum(); const i=this.state.rows.indexOf(src); this.setState(s=>{ const rows=s.rows.slice(); rows.splice(i+1,0,{...src,vnum:v}); return {dirty:true,editingVnum:v,rows}; }); }
+  del(){ const v=this.state.editingVnum; this.setState(s=>({dirty:true,editingVnum:null,rows:s.rows.filter(r=>r.vnum!==v)})); }
+  toast(msg){ this.setState({exportMsg:msg}); clearTimeout(this._tt); this._tt=setTimeout(()=>this.setState({exportMsg:''}),3600); }
+
+  _encField(str, cp, tally){ const o=[]; for(const ch of String(str)){ const c=ch.codePointAt(0); if(c<128){ o.push(c); } else if(c<256){ o.push(c); } else { tally.bad++; for(const b of new TextEncoder().encode(ch)) o.push(b); } } return o; }
+  export(){ const cp=this.cp(); const nameCp=this.state.nameCp; const tally={bad:0}; const rows=this.state.rows; const TAB=9,NL=10;
+    const proto=[]; const p=a=>{ for(const b of a) proto.push(b); };
+    p(this._encField(Component.HEADERS.join('\t'), cp, tally));
+    rows.forEach(r=>{ p([NL]); Component.COLS.forEach((k,ci)=>{ if(ci>0) p([TAB]); if(k==='nameK'){ if(r.nameK==null && r.bytes){ p(r.bytes); } else { p(this._encField(this.nameOf(r), nameCp, tally)); } } else { p(this._encField(String(r[k]??''), cp, tally)); } }); });
+    const nm=[]; const n=a=>{ for(const b of a) nm.push(b); };
+    n(this._encField('VNUM\tLOCALE_NAME', cp, tally));
+    rows.forEach(r=>{ const hasLoc = r.locale!=null ? (r.locale.trim()!=='') : (r.localeBytes && r.localeBytes.length); if(hasLoc){ n([NL]); n(this._encField(r.vnum, cp, tally)); n([TAB]); if(r.locale==null && r.localeBytes){ n(r.localeBytes); } else { n(this._encField(r.locale, cp, tally)); } } });
+    const dl=(name,arr)=>{ const b=new Blob([new Uint8Array(arr)],{type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); };
+    dl('mob_proto.txt', proto); dl('mob_names.txt', nm);
+    this.toast(tally.bad? ('Exported — '+tally.bad+' edited char(s) outside 1 byte, written as UTF-8') : ('Exported '+rows.length+' rows · original bytes preserved, ASCII intact')); }
+
+  short(type){ return type||''; }
+  typeColor(type){ return ({MONSTER:'#e0574f',NPC:'#4a90d9',STONE:'#8a7d63',WARP:'#3fb27f',DOOR:'#9aa0a6',BUILDING:'#9aa0a6',PC:'#a679d6',HORSE:'#e08a3c',GOTO:'#3fb27f'})[type] || '#8a8f98'; }
+  fmtGold(g){ const n=parseInt(g,10)||0; if(n>=1000000) return (n/1000000).toFixed(n%1000000?1:0)+'M'; if(n>=1000) return (n/1000).toFixed(n%1000?1:0)+'k'; return String(n); }
+
+  THEME(theme, accent, wide){
+    const A = accent || ({ide:'#3fb950',grid:'#0969da',fantasy:'#d4af37'})[theme];
+    const mono='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    const sys='-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    if(theme==='ide'){
+      const bg='#0d1117', panel='#161b22', panel2='#0d1117', bd='#30363d', tx='#c9d1d9', dim='#8b949e';
+      return this._pack({theme,A,mono,sys,bg,panel,panel2,bd,tx,dim, font:mono, nameFont:mono, rad:6, listVariant:'rows', gutter:true, rarity:false, titleText:'mob_proto · editor', zebra:false, wide});
+    }
+    if(theme==='fantasy'){
+      const bg='#14110b', panel='#1d1810', panel2='#181309', bd='#3a3122', tx='#ece0c4', dim='#9d9075';
+      return this._pack({theme,A,mono,sys,bg,panel,panel2,bd,tx,dim, font:sys, nameFont:'Georgia, "Times New Roman", serif', rad:3, listVariant:'cards', gutter:false, rarity:true, titleText:'Mob Archive', zebra:false, wide});
+    }
+    const bg='#eef1f5', panel='#ffffff', panel2='#f6f8fa', bd='#d5dbe2', tx='#1f2328', dim='#59636e';
+    return this._pack({theme,A,mono,sys,bg,panel,panel2,bd,tx,dim, font:sys, nameFont:sys, rad:8, listVariant:'table', gutter:false, rarity:false, titleText:'mob_proto grid', zebra:true, wide});
+  }
+  _pack(c){
+    const {A,mono,sys,bg,panel,panel2,bd,tx,dim,font,nameFont,rad}=c; const wide=c.wide;
+    const ctrlBase={width:'100%',padding:'8px 10px',borderRadius:rad+'px',border:'1px solid '+bd,background:panel2,color:tx,font:'500 12px '+sys,outline:'none'};
+    const btn={padding:'8px 12px',borderRadius:rad+'px',border:'1px solid '+bd,cursor:'pointer',font:'600 12px '+sys,whiteSpace:'nowrap'};
+    return {
+      _flags:c, isTable:c.listVariant==='table', showGutter:c.gutter,
+      page: wide
+        ? {display:'flex',flexDirection:'row',height:'100%',minHeight:'560px',background:bg,color:tx,fontFamily:sys,position:'relative',overflow:'hidden',borderRadius:'2px'}
+        : {display:'flex',flexDirection:'column',height:'100%',minHeight:'640px',background:bg,color:tx,fontFamily:sys,position:'relative',overflow:'hidden',borderRadius:'2px'},
+      leftCol: wide
+        ? {display:'flex',flexDirection:'column',height:'100%',width:'clamp(400px, 36%, 520px)',flexShrink:'0',minWidth:'0',borderRight:'1px solid '+bd}
+        : {display:'flex',flexDirection:'column',flex:'1',minHeight:'0',height:'100%'},
+      panel: wide
+        ? {display:'flex',flexDirection:'column',flex:'1',minWidth:'0',height:'100%',background:panel}
+        : {position:'absolute',top:'0',right:'0',bottom:'0',width:'88%',maxWidth:'400px',background:panel,borderLeft:'1px solid '+bd,display:'flex',flexDirection:'column',zIndex:'10',boxShadow:'-8px 0 32px rgba(0,0,0,.35)'},
+      panelEmpty:{flex:'1',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'12px',padding:'40px',textAlign:'center',font:'500 13px '+sys,color:dim,lineHeight:'1.6',maxWidth:'340px',margin:'0 auto'},
+      panelEmptyIcon:{font:'300 46px '+mono,color:this._alpha(A,.5)},
+      head:{padding:'14px 16px 10px',borderBottom:'1px solid '+bd,background:panel},
+      headTop:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px'},
+      title:{font:'700 15px '+(c.theme==='fantasy'?nameFont:font),letterSpacing:c.theme==='ide'?'0.5px':'0',color:tx},
+      titleText:c.titleText,
+      cpBadge:{font:'700 10px '+mono,color:A,background:this._alpha(A,.14),border:'1px solid '+this._alpha(A,.4),padding:'3px 7px',borderRadius:'20px',whiteSpace:'nowrap'},
+      headSub:{font:'400 11px '+mono,color:dim,marginTop:'3px'},
+      toolbar:{display:'flex',flexDirection:'column',gap:'8px',padding:'12px 16px',borderBottom:'1px solid '+bd,background:panel},
+      ioRow:{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap'},
+      ioSpacer:{flex:'1',minWidth:'0'},
+      hiddenFile:{position:'absolute',width:'1px',height:'1px',opacity:'0',pointerEvents:'none'},
+      loadBtn:{...btn,display:'inline-flex',alignItems:'center',background:panel2,color:tx,border:'1px solid '+bd},
+      ghostBtn:{...btn,background:'transparent',color:dim,border:'1px dashed '+bd},
+      exportBtnTop:{...btn,background:A,color:c.theme==='fantasy'?'#1a140a':(c.theme==='grid'?'#fff':'#0d1117'),border:'1px solid '+A},
+      ctrlRow:{display:'flex',flexDirection:'column',gap:'4px'},
+      ctrlRow2:{display:'flex',gap:'8px',alignItems:'stretch'},
+      ctrlLabel:{font:'600 10px '+sys,textTransform:'uppercase',letterSpacing:'.6px',color:dim},
+      select:{...ctrlBase,flex:'1',minWidth:'0'},
+      selectSm:{...ctrlBase,flex:'1',padding:'8px'},
+      dualLabel:{display:'flex',justifyContent:'space-between',gap:'8px'},
+      dualCtrl:{display:'flex',gap:'8px',alignItems:'stretch'},
+      searchInput:{...ctrlBase},
+      addBtn:{...btn,background:A,color:c.theme==='fantasy'?'#1a140a':(c.theme==='grid'?'#fff':'#0d1117'),border:'1px solid '+A},
+      legend:{display:'flex',gap:'14px',padding:'8px 16px',borderBottom:'1px solid '+bd,background:panel2,flexWrap:'wrap'},
+      legendItem:{display:'flex',alignItems:'center',gap:'5px',font:'500 10px '+sys,color:dim},
+      legendDotSafe:{width:'8px',height:'8px',borderRadius:'50%',background:'#3fb27f',display:'inline-block'},
+      legendDotWarn:{color:'#e0a030',fontSize:'11px'},
+      listWrap:{flex:'1',overflowY:'auto',padding:c.listVariant==='cards'?'10px 12px':'0',background:bg},
+      headerRow:{display:'grid',gridTemplateColumns:'62px 1fr 68px 58px',gap:'8px',padding:'8px 16px',position:'sticky',top:'0',background:panel2,borderBottom:'1px solid '+bd,font:'700 9.5px '+sys,letterSpacing:'.5px',color:dim,zIndex:'1'},
+      thVnum:{}, thName:{}, thType:{textAlign:'center'}, thGold:{textAlign:'right'},
+      gutter:{font:'400 10px '+mono,color:this._alpha(dim,.7),minWidth:'22px',textAlign:'right'},
+      vnum:{font:'600 12px '+mono,color:c.theme==='grid'?tx:A,minWidth:'46px'},
+      nameCell:{flex:'1',minWidth:'0',display:'flex',flexDirection:'column',gap:'1px'},
+      nameLine:{display:'flex',alignItems:'center',gap:'5px'},
+      warnDot:{color:'#e0a030',fontSize:'11px',flexShrink:'0'},
+      warnDotSm:{color:'#c98a2a',fontSize:'9px',flexShrink:'0',opacity:'.8'},
+      gold:{font:'600 11px '+mono,color:c.theme==='fantasy'?A:dim,textAlign:'right',minWidth:'44px'},
+      footer:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 16px',borderTop:'1px solid '+bd,background:panel,gap:'8px'},
+      count:{font:'500 11px '+mono,color:dim},
+      exportBtn:{...btn,background:A,color:c.theme==='fantasy'?'#1a140a':(c.theme==='grid'?'#fff':'#0d1117'),border:'1px solid '+A},
+      emptyState:{padding:'40px 16px',textAlign:'center',font:'500 12px '+sys,color:dim},
+      toast:{position:'absolute',left:'12px',right:'12px',bottom:'66px',padding:'10px 12px',borderRadius:rad+'px',background:c.theme==='grid'?'#1f2328':'#000',color:'#fff',font:'500 11px '+sys,textAlign:'center',boxShadow:'0 6px 24px rgba(0,0,0,.4)',zIndex:'6'},
+      overlay:{position:'absolute',inset:'0',background:'rgba(0,0,0,.5)',zIndex:'9'},
+      drawer:{position:'absolute',top:'0',right:'0',bottom:'0',width:'86%',maxWidth:'380px',background:panel,borderLeft:'1px solid '+bd,display:'flex',flexDirection:'column',zIndex:'10',boxShadow:'-8px 0 32px rgba(0,0,0,.35)'},
+      drawerHead:{display:'flex',alignItems:'flex-start',justifyContent:'space-between',padding:'14px 16px',borderBottom:'1px solid '+bd,gap:'8px'},
+      drawerVnum:{font:'700 11px '+mono,color:A},
+      drawerName:{font:'600 15px '+nameFont,color:tx,marginTop:'2px',wordBreak:'break-word'},
+      closeBtn:{...btn,padding:'4px 9px',background:'transparent',color:dim,border:'1px solid '+bd},
+      drawerBody:{flex:'1',overflowY:'auto',padding:'12px 16px'},
+      groupTitle:{font:'700 10px '+sys,textTransform:'uppercase',letterSpacing:'.7px',color:A,margin:'14px 0 8px',paddingBottom:'4px',borderBottom:'1px solid '+this._alpha(bd,.7)},
+      fieldGrid:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'},
+      chipWrap:{display:'flex',flexWrap:'wrap',gap:'6px'},
+      fieldLabelRow:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'4px',marginBottom:'3px'},
+      fieldLabel:{font:'600 10px '+sys,color:dim},
+      fieldWarn:{font:'600 9px '+sys,color:'#e0a030',whiteSpace:'nowrap'},
+      input:{...ctrlBase,padding:'7px 9px',font:'500 12px '+mono},
+      delBtn:{...btn,background:'transparent',color:'#e0574f',border:'1px solid '+this._alpha('#e0574f',.5)},
+      cloneBtn:{...btn,background:'transparent',color:tx,border:'1px solid '+bd},
+      doneBtn:{...btn,flex:'1',background:A,color:c.theme==='fantasy'?'#1a140a':(c.theme==='grid'?'#fff':'#0d1117'),border:'1px solid '+A},
+      drawerFoot:{display:'flex',gap:'8px',padding:'12px 16px',borderTop:'1px solid '+bd,background:panel2}
+    };
+  }
+  _alpha(hex,a){ const h=hex.replace('#',''); const n=parseInt(h.length===3?h.split('').map(x=>x+x).join(''):h,16); return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')'; }
+
+  rowStyle(t, r, idx){
+    const f=t._flags, cp=this.cp(); const acc=this.typeColor(r.type);
+    if(f.listVariant==='cards'){
+      return {display:'flex',alignItems:'center',gap:'10px',padding:'11px 12px 11px 14px',marginBottom:'8px',background:f.panel,border:'1px solid '+f.bd,borderLeft:'3px solid '+acc,borderRadius:f.rad+'px',cursor:'pointer'};
+    }
+    if(f.listVariant==='table'){
+      return {display:'grid',gridTemplateColumns:'62px 1fr 68px 58px',gap:'8px',alignItems:'center',padding:'9px 16px',borderBottom:'1px solid '+this._alpha(f.bd,.7),background: idx%2? f.panel2 : f.panel,cursor:'pointer'};
+    }
+    return {display:'flex',alignItems:'center',gap:'10px',padding:'8px 16px',borderBottom:'1px solid '+this._alpha(f.bd,.55),cursor:'pointer',background: 'transparent'};
+  }
+
+  renderVals(){
+    const theme=this.props.theme||'grid';
+    const wide = this.props.desktop!=null ? !!this.props.desktop : this.state.wide;
+    const t=this.THEME(theme, this.props.accent, wide);
+    const cp=this.cp(); const nameCp=this.state.nameCp; const cpLabel=this.cpDisplay(cp); const f=t._flags;
+    const mw = f.listVariant==='table'?'200px':'160px';
+    const rows=this.filtered();
+    const visibleRows=rows.map((r,i)=>{
+      const acc=this.typeColor(r.type);
+      const badgeStyle={font:'700 9.5px '+t._flags.mono,color:acc,background:this._alpha(acc,.15),border:'1px solid '+this._alpha(acc,.4),padding:'3px 7px',borderRadius:'5px',textAlign:'center',justifySelf: f.listVariant==='table'?'center':'auto',whiteSpace:'nowrap'};
+      const missing=this.isMissing(r); const localeStr=this.localeOf(r);
+      return {
+        vnum:r.vnum, idx:String(i+1).padStart(2,'0'),
+        primary: missing? '⌀ untranslated' : localeStr,
+        primaryWarn: !missing && r.locale!=null && !this.encStr(r.locale,cp),
+        primaryStyle:{font:'600 13px '+f.nameFont,color: missing? '#e0a030' : f.tx,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:mw},
+        secondary: this.nameOf(r) || '—',
+        secondaryWarn: r.nameK!=null && !this.encStr(r.nameK,nameCp),
+        secondaryStyle:{font:'400 11px '+f.mono,color:f.dim,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:mw},
+        typeShort:this.short(r.type), badgeStyle,
+        goldLabel:'Lv '+(r.level||'0'),
+        style:this.rowStyle(t,r,i),
+        onClick:()=>this.setState({editingVnum:r.vnum})
+      };
+    });
+    const editRow=this.state.editingVnum!=null? this.state.rows.find(r=>r.vnum===this.state.editingVnum):null;
+    const inputStyle=t.input; const A=t._flags.A;
+    const chip=(on)=>({font:'600 10px '+f.mono,padding:'5px 9px',borderRadius:f.rad+'px',cursor:'pointer',whiteSpace:'nowrap',border:'1px solid '+(on?A:f.bd),background:on?this._alpha(A,.16):f.panel2,color:on?A:f.dim});
+    const editGroups= editRow? Component.GROUPS.map(g=>({ title:g.title, fields:g.keys.map(k=>{
+      const meta=Component.FIELD[k]||{label:k,kind:'text'};
+      const isEnum=meta.kind==='enum', isFlags=meta.kind==='flags';
+      if(isFlags){
+        const cur=new Set(String(editRow[k]||'').split(meta.sep||'|').map(x=>x.trim()).filter(Boolean));
+        const chips=(meta.options||[]).map(opt=>({ label:opt.replace(/^ANTI_|^ITEM_/,''), title:opt, on:cur.has(opt), style:chip(cur.has(opt)), onToggle:()=>this.toggleFlag(editRow.vnum,k,opt) }));
+        return { key:k, label:meta.label+' · '+cur.size, isEnum:false, isText:false, isFlags:true, chips, wrapStyle:{gridColumn:'1 / -1'} };
+      }
+      const value = k==='nameK' ? this.nameOf(editRow) : (k==='locale' ? this.localeOf(editRow) : String(editRow[k]??''));
+      let options=meta.options||[];
+      if(isEnum && options.indexOf(value)<0 && value) options=[value,...options];
+      const fcp = (k==='nameK') ? nameCp : cp;
+      const isByteBacked = (k==='nameK' && editRow.nameK==null) || (k==='locale' && editRow.locale==null);
+      const warn=(meta.kind==='text' || k==='nameK') && value!=='' && !this.encStr(value,fcp) && !isByteBacked;
+      return { key:k, label:meta.label, value, isEnum, isText:!isEnum, isFlags:false, options, warn, warnCp:this.cpDisplay(fcp),
+        inputMode: meta.kind==='num'?'numeric':'text',
+        inputStyle: warn? {...inputStyle,border:'1px solid #e0a030',background:this._alpha('#e0a030',.08)} : inputStyle,
+        wrapStyle:{gridColumn: (meta.span===2?'1 / -1':'auto')},
+        onInput:(e)=>this.update(editRow.vnum,k,e.target.value) };
+    })})):[];
+
+    return {
+      t, cpLabel, isTable:t.isTable, showGutter:t.showGutter,
+      locale:this.state.locale, onLocale:(e)=>this.setState({locale:e.target.value}),
+      localeOpts:Component.LOCALES.map(l=>({code:l[0],label:l[1]})),
+      onNameCp:()=>this.setState(s=>({nameCp: s.nameCp==='949'?'1252':'949'})),
+      onLoadProto:(e)=>this.onLoadProto(e), onLoadNames:(e)=>this.onLoadNames(e), onSample:()=>this.loadSample(),
+      nameCpLabel: nameCp==='949'?'CP949':'CP1252',
+      nameCpBtnStyle:{padding:'8px 10px',borderRadius:f.rad+'px',cursor:'pointer',font:'700 11px '+f.mono,whiteSpace:'nowrap',border:'1px solid '+f.bd,background:f.panel2,color:f.dim,minWidth:'66px'},
+      search:this.state.search, onSearch:(e)=>this.setState({search:e.target.value}),
+      typeFilter:this.state.typeFilter, onType:(e)=>this.setState({typeFilter:e.target.value}),
+      typeOpts:['ALL',...Array.from(new Set(this.state.rows.map(r=>r.type)))],
+      onToggleMissing:()=>this.setState(s=>({onlyMissing:!s.onlyMissing})),
+      missingBtnStyle:{padding:'8px 10px',borderRadius:f.rad+'px',cursor:'pointer',font:'600 11px '+f.sys,whiteSpace:'nowrap',border:'1px solid '+(this.state.onlyMissing?'#e0a030':f.bd),background:this.state.onlyMissing?this._alpha('#e0a030',.15):f.panel2,color:this.state.onlyMissing?'#e0a030':f.dim},
+      onAdd:()=>this.add(),
+      visibleRows, empty:visibleRows.length===0,
+      shownCount:visibleRows.length, totalCount:this.state.rows.length,
+      dirtyLabel:this.state.dirty?' · edited':'',
+      onExport:()=>this.export(), exportMsg:this.state.exportMsg,
+      setRoot:(el)=>this._measure(el),
+      wide, showPanel: wide || !!editRow, showOverlay: !wide && !!editRow, panelEmpty: wide && !editRow, closeLabel: wide ? '✕ Close' : '✕',
+      editing:!!editRow, editVnum:editRow?editRow.vnum:'', editName:editRow?(this.localeOf(editRow)||this.nameOf(editRow)||'New item'):'',
+      editGroups, onClose:()=>this.setState({editingVnum:null}), onDelete:()=>this.del(), onClone:()=>this.clone()
+    };
+  }
+}
+</script>
+</body>
+</html>
