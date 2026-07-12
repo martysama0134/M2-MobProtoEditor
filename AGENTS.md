@@ -12,8 +12,10 @@ Hard invariants:
 2. **`COLS` and `HEADERS` must stay index-aligned** (71 columns). A new field
    also needs `DEFAULTS`, `FIELD`, and a `GROUPS` entry — five places total
    (see README § Add a proto column). New columns only at index ≥ 2; columns
-   0–1 (`vnum`, `nameK`) are special-cased in parse/export.
+   0–1 (`vnum`, `nameK`) are read by fixed position in the parser, and
+   `nameK` is raw-byte special-cased in export.
 3. **Mob flag fields are comma-separated** (`sep:','` in `FIELD`) — never
-   hardcode the `|` joiner.
+   bypass `meta.sep` for them (`|` is only the default for fields without
+   `sep`).
 4. **No build step.** Verify changes by opening `index.html` in a browser and
    clicking **Sample**, then Export and inspect the output columns.
